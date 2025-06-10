@@ -1,0 +1,140 @@
+#include <windows.h>
+
+#define ID_BUTTON_START 1
+#define ID_LABEL_HINT 2
+
+bool botRunning = false;
+HBITMAP hBackground = NULL;
+
+void PressKeyCombo() {
+    keybd_event(VK_CONTROL, 0, 0, 0);
+    keybd_event(0x56, 0, 0, 0); // 'V'
+    keybd_event(0x56, 0, KEYEVENTF_KEYUP, 0);
+    keybd_event(VK_CONTROL, 0, KEYEVENTF_KEYUP, 0);
+
+    Sleep(5);
+
+    keybd_event(VK_RETURN, 0, 0, 0);
+    keybd_event(VK_RETURN, 0, KEYEVENTF_KEYUP, 0);
+}
+
+DWORD WINAPI BotThread(LPVOID) {
+    MessageBoxA(NULL, "áîò çàïóùåí äëÿ åãî îñòàíîâêè íàæìè F9 õóåñîñ ", "õóåì ïî ëáó õî÷?", MB_OK);
+    while (botRunning) {
+        if (GetAsyncKeyState(VK_F9) & 0x8000) {
+            botRunning = false;
+            MessageBoxA(NULL, "áîò îñòàíîâëåí à òåïåðü èäè íàõóé", "õóåì ïî ëáó òî÷íî õî÷!", MB_OK);
+            break;
+        }
+        PressKeyCombo();
+        Sleep(10);
+    }
+    return 0;
+}
+
+LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
+    static int screenWidth, screenHeight;
+
+    switch (uMsg) {
+    case WM_CREATE:
+        screenWidth = GetSystemMetrics(SM_CXSCREEN);
+        screenHeight = GetSystemMetrics(SM_CYSCREEN);
+
+        hBackground = (HBITMAP)LoadImageA(NULL, "C:\\Users\\Fsociety00\\Desktop\\eses\\background.bmp", IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE);
+        if (!hBackground) {
+            MessageBoxA(hwnd, "ÕÓÅÑÎÑ ÍÀÇÎÂÈ ËÞÁÓÞ ÔÎÒÊÓ Â ÏÀÏÊÅ eses ÍÀ ÐÀÁÎ×ÅÌ ÑÒÎËÅ background.bmp", "ÅÁÀÍÛÉ ÄÅÃÅÍÅÐÀÒ", MB_ICONERROR);
+        }
+
+        CreateWindowA("BUTTON", "äàâàé íà÷íè ýòó õóåòó óåáà",
+            WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,
+            screenWidth / 2 - 100, screenHeight / 2 - 30, 200, 30,
+            hwnd, (HMENU)ID_BUTTON_START, ((LPCREATESTRUCT)lParam)->hInstance, NULL);
+
+        CreateWindowA("STATIC", "ýòó õóéíþ ìîæíî âðóáèòü ctrl+f8",
+            WS_VISIBLE | WS_CHILD,
+            screenWidth / 2 - 140, screenHeight / 2 + 10, 280, 20,
+            hwnd, (HMENU)ID_LABEL_HINT, ((LPCREATESTRUCT)lParam)->hInstance, NULL);
+        break;
+
+    case WM_COMMAND:
+        if (LOWORD(wParam) == ID_BUTTON_START && !botRunning) {
+            botRunning = true;
+            CreateThread(NULL, 0, BotThread, NULL, 0, NULL);
+        }
+        break;
+
+    case WM_HOTKEY:
+        if (wParam == 100 && !botRunning) {
+            botRunning = true;
+            CreateThread(NULL, 0, BotThread, NULL, 0, NULL);
+        }
+        break;
+
+    case WM_PAINT: {
+        PAINTSTRUCT ps;
+        HDC hdc = BeginPaint(hwnd, &ps);
+
+        if (hBackground) {
+            HDC hdcMem = CreateCompatibleDC(hdc);
+            SelectObject(hdcMem, hBackground);
+
+            BITMAP bmp;
+            GetObject(hBackground, sizeof(BITMAP), &bmp);
+
+            StretchBlt(hdc, 0, 0, screenWidth, screenHeight, hdcMem, 0, 0, bmp.bmWidth, bmp.bmHeight, SRCCOPY);
+            DeleteDC(hdcMem);
+        }
+
+        EndPaint(hwnd, &ps);
+        break;
+    }
+
+    case WM_DESTROY:
+        if (hBackground) DeleteObject(hBackground);
+        PostQuitMessage(0);
+        break;
+
+    default:
+        return DefWindowProc(hwnd, uMsg, wParam, lParam);
+    }
+    return 0;
+}
+
+int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow) {
+    const char CLASS_NAME[] = "MyBotWindow";
+
+    WNDCLASSA wc = {};
+    wc.lpfnWndProc = WindowProc;
+    wc.hInstance = hInstance;
+    wc.lpszClassName = CLASS_NAME;
+    wc.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
+
+    RegisterClassA(&wc);
+
+    int screenWidth = GetSystemMetrics(SM_CXSCREEN);
+    int screenHeight = GetSystemMetrics(SM_CYSCREEN);
+
+    HWND hwnd = CreateWindowExA(
+        0,
+        CLASS_NAME,
+        "Spammer Ctrl+V + Enter",
+        WS_POPUP | WS_VISIBLE,
+        0, 0, screenWidth, screenHeight,
+        NULL, NULL, hInstance, NULL
+    );
+
+    if (!hwnd) return 0;
+
+    ShowWindow(hwnd, nCmdShow);
+    UpdateWindow(hwnd);
+
+    RegisterHotKey(hwnd, 100, MOD_CONTROL, VK_F8);
+
+    MSG msg = {};
+    while (GetMessage(&msg, NULL, 0, 0)) {
+        TranslateMessage(&msg);
+        DispatchMessage(&msg);
+    }
+
+    return 0;
+}
